@@ -17,29 +17,23 @@ module.exports = function* (config) {
   const { pool, complexity = 10 } = config
   const bag = new Bag(pool)
 
-  bag.addTable('session')
-
   bag.addTable('account', {
     columns: {
       email: { unique: true }
     }
   })
 
+  bag.addTable('session', {
+    columns: {
+      accountId: {
+        references: 'account(id)'
+      }
+    }
+  })
+
   yield bag.migrate(config.temp)
 
   const router = new Router()
-
-  router.get('/session/:id', co.wrap(function* (req, res, next) {
-    const { id } = req.params
-    try {
-      const session = yield bag.session.get(id)
-      if (!session) {
-        return next(404)
-      }
-    } catch (e) {
-      return next(404)
-    }
-  }))
 
   router.post('/account', co.wrap(function* (req, res, next) {
     const { email, password } = req.body
@@ -67,11 +61,26 @@ module.exports = function* (config) {
     }
     const goodPassword = yield bcrypt.compare(password, existing.password)
     if (!goodPassword) {
-      console.log('password mispatch')
       return next(404)
     }
-    res.status(201).end()
+    const session = yield bag.session.put({
+      accountId: existing.id
+    })
+    res.status(201).send(session)
   }))
+
+  router.get('/session/:id', co.wrap(function* (req, res, next) {
+    const { id } = req.params
+    try {
+      const session = yield bag.session.get(id)
+      if (!session) {
+        return next(404)
+      }
+    } catch (e) {
+      return next(404)
+    }
+  }))
+
 
   return router
 }

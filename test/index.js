@@ -69,14 +69,22 @@ describe('app', () => {
     expect(res.statusCode).to.eql(404)
   }))
 
-  it('can create new account', co.wrap(function* () {
+
+  const signup = function* (client, email, password) {
     const options = {
-      body: {
-        email: 'foo@bar.com',
-        password: 'foobar',
-      },
+      body: { email, password }
     }
-    const res = yield this.client.post('/account', options)
+    return client.post('/account', options)
+  }
+
+  const login = function* (client, email, password) {
+    return client.post('/session', {
+      body: { email, password }
+    })
+  }
+
+  it('can create new account', co.wrap(function* () {
+    const res = yield signup(this.client, 'foo@bar.com', 'foobar')
     expect(res.statusCode).to.eql(201)
     const { body } = res
     expect(body.id).to.be.a('string')
@@ -85,29 +93,32 @@ describe('app', () => {
   }))
 
   it('cannot create the same account twice', co.wrap(function* () {
-    const options = {
-      body: {
-        email: 'baz@bar.com',
-        password: 'foobar',
-      },
-    }
-    let res = yield this.client.post('/account', options)
+    let res = yield signup(this.client, 'baz@bar.com', 'foobar')
     expect(res.statusCode).to.eql(201)
-    res = yield this.client.post('/account', options)
+    res = yield signup(this.client, 'baz@bar.com', 'zug')
     expect(res.statusCode).to.eql(400)
   }))
 
   it('can login', co.wrap(function* () {
-    const options = {
-      body: {
-        email: 'foo@bar.com',
-        password: 'foobar',
-      },
-    }
-    const res1 = yield this.client.post('/account', options)
+    const email = 'foo@bar.com'
+    const password = 'yup'
+    const res1 = yield signup(this.client, email, password)
     expect(res1.statusCode).to.eql(201)
+    const res = yield login(this.client, email, password)
+    const { body } = res
+    expect(body.id).to.be.a('string')
+    expect(body.accountId).to.equal(res1.body.id)
+  }))
 
-    const res = yield this.client.post('/session', options)
-    expect(res.statusCode).to.eql(201)
+  it('denies login with wrong password', co.wrap(function* () {
+    const res1 = yield signup(this.client, 'foo@bar.com', 'foobar')
+    expect(res1.statusCode).to.eql(201)
+    const res = yield login(this.client, 'foo@bar.com', 'zugzug')
+    expect(res.statusCode).to.eql(404)
+  }))
+
+  it('denies login with wrong email', co.wrap(function* () {
+    const res = yield login(this.client, 'foo@bar.com', 'zugzug')
+    expect(res.statusCode).to.eql(404)
   }))
 })
