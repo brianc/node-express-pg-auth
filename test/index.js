@@ -32,9 +32,9 @@ describe('app', () => {
     app.use((err, req, res, next) => {
       console.log('fucking unhandled error', err)
       if (typeof err == 'number') {
-        res.status(err).end()
+        return res.status(err).end()
       }
-      throw err
+      res.status(500).end()
     })
     this.client = new Client(app)
     this.client.start()
@@ -60,7 +60,7 @@ describe('app', () => {
     expect(res.statusCode).to.eql(404)
   }))
 
-  it.only('can create new account', co.wrap(function* () {
+  it('can create new account', co.wrap(function* () {
     const options = {
       body: {
         email: 'foo@bar.com',
@@ -69,5 +69,12 @@ describe('app', () => {
     }
     const res = yield this.client.post('/account', options)
     expect(res.statusCode).to.eql(201)
+    const { body } = res
+    expect(body.id).to.be.a('string')
+    expect(body.email).to.eql('foo@bar.com')
+    expect(body.password).to.eql('foobar')
+  }))
+
+  it('cannot create the same account twice', co.wrap(function* () {
   }))
 })

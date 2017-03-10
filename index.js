@@ -14,7 +14,6 @@ module.exports = function* (config) {
     }
   })
 
-  console.log('migrating that shit')
   yield bag.migrate(config.temp)
 
   const router = new Router()
@@ -34,7 +33,7 @@ module.exports = function* (config) {
   router.post('/account', co.wrap(function* (req, res) {
     const { email, password } = req.body
     const acct = yield bag.account.put({ email, password })
-    console.log(email, password)
+    return res.status(201).send(acct)
   }))
 
   return router
