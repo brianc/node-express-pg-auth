@@ -17,11 +17,13 @@ describe('app', () => {
   before(co.wrap(function* () {
     this.pool = new Pool({
       max: 1
-    });
+    })
 
-    this.pool.query('BEGIN')
-
-    const config = { pool: this.pool, temp: true }
+    const config = {
+      pool: this.pool,
+      temp: true,
+      complexity: 1,
+    }
 
     const app = express()
     const bodyParser = require('body-parser')
@@ -40,8 +42,15 @@ describe('app', () => {
     this.client.start()
   }))
 
+  beforeEach(function () {
+    this.pool.query('BEGIN')
+  })
+
+  afterEach(function() {
+    this.pool.query('ROLLBACK')
+  })
+
   after(co.wrap(function* () {
-    yield this.pool.query('ROLLBACK')
     yield this.client.stop()
   }))
 
@@ -71,10 +80,34 @@ describe('app', () => {
     expect(res.statusCode).to.eql(201)
     const { body } = res
     expect(body.id).to.be.a('string')
+    expect(body).to.not.have.key('password')
     expect(body.email).to.eql('foo@bar.com')
-    expect(body.password).to.eql('foobar')
   }))
 
   it('cannot create the same account twice', co.wrap(function* () {
+    const options = {
+      body: {
+        email: 'baz@bar.com',
+        password: 'foobar',
+      },
+    }
+    let res = yield this.client.post('/account', options)
+    expect(res.statusCode).to.eql(201)
+    res = yield this.client.post('/account', options)
+    expect(res.statusCode).to.eql(400)
+  }))
+
+  it('can login', co.wrap(function* () {
+    const options = {
+      body: {
+        email: 'foo@bar.com',
+        password: 'foobar',
+      },
+    }
+    const res1 = yield this.client.post('/account', options)
+    expect(res1.statusCode).to.eql(201)
+
+    const res = yield this.client.post('/session', options)
+    expect(res.statusCode).to.eql(201)
   }))
 })
